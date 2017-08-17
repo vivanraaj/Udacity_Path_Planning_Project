@@ -203,9 +203,9 @@ int main() {
 
   // have a reference velcoty to target
   // we start from 0
-  double ref_val = 0.0; //mph
+  double ref_vel = 0.0; //mph
 
-  h.onMessage([&map_waypoints_x,&map_waypoints_y,&map_waypoints_s,&map_waypoints_dx,&map_waypoints_dy](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
+  h.onMessage([&lane,&ref_vel, &map_waypoints_x,&map_waypoints_y,&map_waypoints_s,&map_waypoints_dx,&map_waypoints_dy](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
                      uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
     // The 4 signifies a websocket message
@@ -308,16 +308,16 @@ int main() {
 			if (too_close)
 			{
 				// we reduce and ends up becoming 5 mph
-				ref_val -= .224;
+				ref_vel -= .224;
 			}
-			else if(ref_val < 49.5)
+			else if(ref_vel < 49.5)
 			{
 				// at beginning, start acceleraton but slowly
 				// increment every cycle
 				// another way is go trhough path plannner and icnrease velocty at every pt
-				ref_val += .224;
+				ref_vel += .224;
 			}
-			}
+			
 
 
 
@@ -365,8 +365,8 @@ int main() {
 				ptsx.push_back(prev_car_x);
 				ptsx.push_back(car_x);
 
-				ptsx.push_back(prev_car_y);
-				ptsx.push_back(car_y);
+				ptsy.push_back(prev_car_y);
+				ptsy.push_back(car_y);
 			}
 			// use the previous path's end point as starting refernece
 			else
@@ -404,11 +404,11 @@ int main() {
 			vector<double> next_wp1 = getXY(car_s+60, (2+4*lane),map_waypoints_s,map_waypoints_x,map_waypoints_y);
 			vector<double> next_wp2 = getXY(car_s+90, (2+4*lane),map_waypoints_s,map_waypoints_x,map_waypoints_y);
 
-			ptsx.push_back(next_wpo[0]);
+			ptsx.push_back(next_wp0[0]);
 			ptsx.push_back(next_wp1[0]);
 			ptsx.push_back(next_wp2[0]);
 
-			ptsy.push_back(next_wpo[1]);
+			ptsy.push_back(next_wp0[1]);
 			ptsy.push_back(next_wp1[1]);
 			ptsy.push_back(next_wp2[1]);
 
@@ -417,18 +417,18 @@ int main() {
 			// transformation to local car coordiantes
 			// shift in rotation
 			// make sure last coordinates at origin as well as the angle
-			for (int i = 0; i< prev.size(); i++)
+			for (int i = 0; i< ptsx.size(); i++)
 			{
 				// shift car reference angle to 0 degrees
 				double shift_x = ptsx[i]-ref_x;
 				double shift_y = ptsy[i]-ref_y;
 
 				ptsx[i] = (shift_x * cos(0-ref_yaw)-shift_y*sin(0-ref_yaw));
-				ptsy[i] = (shift_x * sin(0-ref_yaw)-shift_y*cos(0-ref_yaw));
+				ptsy[i] = (shift_x * sin(0-ref_yaw)+shift_y*cos(0-ref_yaw));
 			}
 
 			// create a spline
-			tk:spline s;
+			tk::spline s;
 
 			// set(x,y) points to the spline
 			// this is spline anchor pts.
@@ -476,7 +476,7 @@ int main() {
 
 			for (int i = 1; i <= 50 - previous_path_x.size(); i++){
 				// convert from mph to m/s
-				double N = (target_dist/(.02*ref_val/2.24));
+				double N = (target_dist/(.02*ref_vel/2.24));
 				// whatever x plus target x divide by N
 				double x_point = x_add_on + (target_x)/N;
 				// 
