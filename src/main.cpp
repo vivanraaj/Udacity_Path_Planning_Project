@@ -285,7 +285,7 @@ int main() {
 					// s value out
 					// check s values greater than mine and s gap
 					// if in front of us and gap smaller than 30 metres, we take action
-					if ((check_car_s > car_s) && ((check_car_s - car_s) <30 ))
+					if ((check_car_s > car_s) && ((check_car_s - car_s) < 30 ))
 					{
 
 						// do some logic here. lower reference velocity so we dont crash into the car infront of us, 
@@ -295,21 +295,93 @@ int main() {
 						// now we flag
 						too_close= true;
 						// if we start with lane 1, we do a left turn blindly
-						if(lane> 0)
-						{
-							lane = 0;
-						}
-
-
 					}
 				}
 			}
 
-			if (too_close)
-			{
-				// we reduce and ends up becoming 5 mph
-				ref_vel -= .224;
+
+			// if at above, too close is flagged to true, below codes execute
+			if(too_close)
+			{	
+				// first reduce the ref velocity
+				ref_vel -= 0.224;
+				int new_lane;
+				bool left_collision = false;
+				bool right_collision = false;
+				bool changed_lane = false;
+
+			// if car at other lanes except lane 0
+			if((lane - 1) >= 0) {
+				//higher preference to turn to left lane instead of right lane
+				new_lane = lane - 1;
+				for(int i = 0; i < sensor_fusion.size(); ++i){
+					float d = sensor_fusion[i][6];
+
+					if(d > (4 * new_lane) && d < (4 * (new_lane + 1))){
+						//calculate it's s at the end of previous waypoints
+						double vx = sensor_fusion[i][3];
+						double vy = sensor_fusion[i][4];
+						// calc velocity magnitude
+						double check_speed = sqrt(vx*vx + vy*vy);
+						// check if car is close to us
+						double check_car_s = sensor_fusion[i][5];
+
+						check_car_s += ((double)prev_size*.02*check_speed);
+						// below we checking for front 30 distance
+						if((check_car_s > car_s)  && ((check_car_s - car_s) < 30)){
+							left_collision =  true;
+						}
+						// below we checking for backwards 30 distance
+						if((check_car_s < car_s)  && ((car_s - check_car_s) < 15.0)){
+							left_collision =  true;
+						}
+
+					}
+				}
+				//if no possiblity of left lane collision, we change to left lane;
+				if(! left_collision){
+					lane = new_lane;
+					changed_lane = true;
+				}
+				
 			}
+
+			// do right turn if left turn not possible
+			// check if doenst exceed lane 2
+			if((lane + 1 < 3) && !changed_lane ){
+				new_lane = lane + 1;
+				for(int i = 0; i < sensor_fusion.size(); ++i){
+					float d = sensor_fusion[i][6];
+
+					// do same check as in left lane above
+					if(d > (4 * new_lane) && d < (4 * (new_lane + 1))){
+						//calculate it's s at the end of previous waypoints
+						double vx = sensor_fusion[i][3];
+						double vy = sensor_fusion[i][4];
+						// calc velocity magnitude
+						double check_speed = sqrt(vx*vx + vy*vy);
+						// check if car is close to us
+						double check_car_s = sensor_fusion[i][5];
+
+						check_car_s += ((double)prev_size*.02*check_speed);
+						// below we checking for front 30 distance
+						if((check_car_s > car_s)  && ((check_car_s - car_s) < 30)){
+							right_collision = true;
+						}
+						// below we checking for back 30 distance
+						if((check_car_s < car_s)  && ((car_s - check_car_s) < 15.0)){
+							right_collision = true;
+						}
+
+					}
+				}
+
+				if(! right_collision){
+					lane = new_lane;
+				}
+			}
+			}
+
 			else if(ref_vel < 49.5)
 			{
 				// at beginning, start acceleraton but slowly
@@ -318,26 +390,6 @@ int main() {
 				ref_vel += .224;
 			}
 			
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-			
-
 			// Create a list of widely spaced (x,y) waypoints, evenly spaced at 30 m
 			// later will interpolate these waypoints with a spline and fill it in with more pts that control
 			// 
